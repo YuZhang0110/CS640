@@ -197,7 +197,11 @@ public class Router extends Device
 		// Check TTL
 		ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
 		if (0 == ipPacket.getTtl())
-		{ return; }
+		{
+			System.out.println("TTL = 0");
+			sendICMPPacket(11, 0, inIface, ipPacket);
+			return;
+		}
 
 		// Reset checksum now that TTL is decremented
 		ipPacket.resetChecksum();
@@ -206,7 +210,23 @@ public class Router extends Device
 		for (Iface iface : this.interfaces.values())
 		{
 			if (ipPacket.getDestinationAddress() == iface.getIpAddress())
-			{ return; }
+			{
+				// (1) If a TCP or UDP header comes after the IP header
+				if (ipPacket.getProtocol() == IPv4.PROTOCOL_TCP || ipPacket.getProtocol() == IPv4.PROTOCOL_UDP){
+					sendICMPPacket(3, 3, inIface, ipPacket);
+					return;
+				}
+				// (2) If an ICMP header comes after the IP header
+				if (ipPacket.getProtocol() == IPv4.PROTOCOL_ICMP) {
+					ICMP icmpPacket = (ICMP) ipPacket.getPayload();
+					//  If the ICMP message is an echo request (used by ping)
+					if (icmpPacket.getIcmpType() == (byte) 8){
+						// handle ICMP echo request
+						handleIcmpEchoRequest(ipPacket, icmpPacket, inIface);
+					}
+					return;
+				}
+			}
 		}
 
 		// Do route lookup and forward
@@ -230,7 +250,8 @@ public class Router extends Device
 		// If no entry matched, do nothing
 		if (null == bestMatch)
 		{
-
+			System.out.println("no entry matched in the route table");
+			sendICMPPacket(3, 0, inIface, ipPacket);
 			return;
 		}
 
@@ -313,6 +334,7 @@ public class Router extends Device
 						while(atomicQueue.get() != null && atomicQueue.get().peek() != null){
 							atomicQueue.get().poll();
 						}
+						sendICMPPacket(3,1, inIface, ipPacket);
 						return;
 					} catch(InterruptedException v) {
 						System.out.println(v);
@@ -342,5 +364,142 @@ public class Router extends Device
 		arp.setTargetHardwareAddress(ByteBuffer.allocate(8).putInt(0).array());
 		arp.setTargetProtocolAddress(nextHop);
 		return arp;
+	}
+
+	private MACAddress findNextHopMACAddress(int DestIP){
+		// 1. loop up the routeTable
+		RouteEntry routeEntry = this.routeTable.lookup(DestIP);
+		if(routeEntry == null){
+			System.err.println("No match Dest IP in routeTable.");
+			return null;
+		}
+		// 2. get the next hop IP address
+		int nextHopIP = routeEntry.getGatewayAddress();
+		if(nextHopIP == 0){
+			nextHopIP = DestIP;
+		}
+		// 3. find next hop MAC address from arpCache
+		ArpEntry arpEntry = this.arpCache.lookup(nextHopIP);
+		if(arpEntry == null){
+			System.err.println("ICMP: no nuch IP in arpCache");
+			return null;
+		};
+		return arpEntry.getMac();
+	}
+
+	private void sendICMPPacket(int type, int code, Iface iface, IPv4 ipPacket){
+		// 1. set Ethernet header
+		Ethernet ether = new Ethernet();
+		// 1.1. set EtherType
+		ether.setEtherType(Ethernet.TYPE_IPv4);
+		// 1.2. set Source MAC to the MAC address of the out interface
+		ether.setSourceMACAddress(iface.getMacAddress().toBytes());
+
+		// 1.3. set Destination MAC: set to the MAC address of the next hop
+		int DestIP = ipPacket.getSourceAddress();
+		MACAddress nextHopMacAddr = findNextHopMACAddress(DestIP);
+		// 1.3.1. if the MAC address associated with an IP address cannot be resolved using ARP.
+		//if(destMAC == null) {
+		//	RouteEntry rEntry = routeTable.lookup(pktIn.getSourceAddress());
+		//	/* Find the next hop IP Address */
+		//	int nextHopIPAddress = rEntry.getGatewayAddress();
+		//	if(nextHopIPAddress == 0){
+		//		nextHopIPAddress = pktIn.getSourceAddress();
+		//	}
+		//	this.sendARPRequest(ether, inIface, rEntry.getInterface(), nextHopIPAddress);
+		//	return;
+		//}
+
+		ether.setDestinationMACAddress(nextHopMacAddr.toBytes());
+		System.out.println(nextHopMacAddr);
+
+		// 2. set IP header
+		IPv4 ip = generateIpPacket(IPv4.PROTOCOL_ICMP, iface.getIpAddress(), ipPacket.getSourceAddress());
+		//IPv4 ip = new IPv4();
+		// 2.1. TTL—setto64
+		//ip.setTtl((byte) 64);
+		// 2.2. Protocol — set to IPv4.PROTOCOL_ICMP
+		//ip.setProtocol(IPv4.PROTOCOL_ICMP);
+		// 2.3. Source IP — set to the IP address of the interface on which the original packet arrived
+		//ip.setSourceAddress(iface.getIpAddress());
+		// 2.4. Destination IP — set to the source IP of the original packet
+		//ip.setDestinationAddress(ipPacket.getSourceAddress());
+
+		// 3. set ICMP header
+		ICMP icmp = generateIcmpPacket(type, code);
+		//ICMP icmp = new ICMP();
+		// 3.1. set ICMP type
+		//icmp.setIcmpType((byte)type);
+		// 3.2. set ICMP code
+		//icmp.setIcmpCode((byte)code);
+
+		// 4. assemble the ICMP payload
+		Data data = new Data();
+		// 4.1. construct byteArray
+		int origialIPHeaderLength = ipPacket.getHeaderLength() * 4;
+		byte[] byteArray = new byte[4 + origialIPHeaderLength + 8];
+		// 4.2. copy bytes from IpPacket
+		byte[] serializedIpPacket = ipPacket.serialize();
+		int serializedIpPacketLen = serializedIpPacket.length;
+		for(int i = 0; i < origialIPHeaderLength + 8; i++){
+			if (i < serializedIpPacketLen) byteArray[4 + i] = serializedIpPacket[i];
+			else break;
+		}
+
+		// 5. assemble the ICMP Packet
+		data.setData(byteArray);
+		icmp.setPayload(data);
+		ip.setPayload(icmp);
+		ether.setPayload(ip);
+
+		// 6. send ICMP Packet
+		this.sendPacket(ether, iface);
+	}
+
+	private void handleIcmpEchoRequest(IPv4 ipPacket, ICMP icmpPacket, Iface inIface){
+		System.out.println("handling an ICMP echo request");
+		Ethernet echoReply = getCommonEchoReply(ipPacket, icmpPacket, inIface);
+		sendPacket(echoReply, inIface);
+	}
+
+	private Ethernet getCommonEchoReply(IPv4 ipPacket, ICMP icmpPacket, Iface inIface){
+		// 1. set Ethernet header
+		Ethernet ether = new Ethernet();
+		ether.setEtherType(Ethernet.TYPE_IPv4);
+		ether.setSourceMACAddress(inIface.getMacAddress().toBytes());
+		int nextHop = this.routeTable.lookup(ipPacket.getSourceAddress()).getGatewayAddress();
+		if (nextHop == 0) {
+			nextHop = ipPacket.getSourceAddress();
+		}
+		ether.setDestinationMACAddress(this.arpCache.lookup(nextHop).getMac().toBytes());
+
+		// 2. set IP header
+		IPv4 ip = generateIpPacket(IPv4.PROTOCOL_ICMP, ipPacket.getDestinationAddress(), ipPacket.getSourceAddress());
+
+		// 3. set ICMP header
+		ICMP icmp = generateIcmpPacket(0, 0);
+
+		// 4. assemble the Packet
+		ether.setPayload(ip);
+		ip.setPayload(icmp);
+		Data icmpRequestPayload = (Data) icmpPacket.getPayload();
+		icmp.setPayload(icmpRequestPayload);
+		return ether;
+	}
+
+	private IPv4 generateIpPacket(byte protocol, int sourceAddress, int destAddress){
+		IPv4 ip = new IPv4();
+		ip.setTtl((byte) 64);
+		ip.setProtocol(protocol);
+		ip.setSourceAddress(sourceAddress);
+		ip.setDestinationAddress(destAddress);
+		return ip;
+	}
+
+	private ICMP generateIcmpPacket(int type, int code){
+		ICMP icmp = new ICMP();
+		icmp.setIcmpType((byte) type);
+		icmp.setIcmpCode((byte) code);
+		return icmp;
 	}
 }
