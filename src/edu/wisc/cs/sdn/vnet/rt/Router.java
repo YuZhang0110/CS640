@@ -45,7 +45,9 @@ public class Router extends Device
 	{
 		super(host,logfile);
 		this.routeTable = new RouteTable();
-		this.arpCache = new ArpCache();
+		this.atomicCache = new AtomicReference(new ArpCache());
+		//this.arpCache = new ArpCache();
+		this.packetQueues = new HashMap<Integer, Queue>();
 	}
 
 	/**
