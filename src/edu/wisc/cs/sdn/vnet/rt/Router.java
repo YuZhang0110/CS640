@@ -35,7 +35,7 @@ public class Router extends Device
 	private RouteTable routeTable;
 
 	/** ARP cache for the router */
-	private static AtomicReference<ArpCache> atomicCache;
+	private static AtomicReference<ArpCache> arpCache;
 
 	/** Hashmap of queues HOLY SHIT */
 	private HashMap<Integer, Queue>  packetQueues; 
@@ -48,7 +48,7 @@ public class Router extends Device
 	{
 		super(host,logfile);
 		this.routeTable = new RouteTable();
-		this.atomicCache = new AtomicReference(new ArpCache());
+		this.arpCache = new AtomicReference(new ArpCache());
 		//this.arpCache = new ArpCache();
 		this.packetQueues = new HashMap<Integer, Queue>();
 	}
@@ -290,7 +290,7 @@ public class Router extends Device
 						sendPacket(atomicEtherPacket.get(), atomicIface.get());
 						//System.out.println("1) Checking for "+nextH);
 						Thread.sleep(1000);
-						if(atomicCache.get().lookup(nextH) != null){
+						if(arpCache.get().lookup(nextH) != null){
 							System.out.println("Found it!");
 							return;
 						}
@@ -298,7 +298,7 @@ public class Router extends Device
 						sendPacket(atomicEtherPacket.get(), atomicIface.get());
 						//System.out.println("2) Checking again for" + nextH);
 						Thread.sleep(1000);
-						if(atomicCache.get().lookup(nextH) != null){
+						if(arpCache.get().lookup(nextH) != null){
 							System.out.println("Found it!");
 							return;
 						}
@@ -306,7 +306,7 @@ public class Router extends Device
 						sendPacket(atomicEtherPacket.get(), atomicIface.get());
 						//System.out.println("3) Checking again for" + nextH);
 						Thread.sleep(1000);
-						if(atomicCache.get().lookup(nextH) != null){
+						if(arpCache.get().lookup(nextH) != null){
 							System.out.println("Found it!");
 							return;
 						}
