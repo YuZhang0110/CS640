@@ -323,7 +323,7 @@ public class Router extends Device
 
 		this.sendPacket(etherPacket, outIface);
 	}
-	private ARP arp generateArpRequest(Ethernet etherPacket, Iface inIface, int nextHop){
+	private ARP generateArpRequest(Ethernet etherPacket, Iface inIface, int nextHop){
 		ARP arp = new ARP();
 
 		// Set ARP Header
