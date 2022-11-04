@@ -169,7 +169,19 @@ public class RouteTable
             this.entries.add(entry);
         }
 	}
-	
+	public void insert(int dstIp, int gwIp, int maskIp, Iface iface, int cost)
+	{
+		RouteEntry entry = new RouteEntry(dstIp, gwIp, maskIp, iface);
+		entry.setParent(this);
+		entry.setCost(cost);
+        	
+		synchronized(this.entries)
+        	{
+            		this.entries.add(entry);
+            		if (gwIp != 0)
+            		{ entry.start(); }
+        	}
+	}
 	/**
 	 * Remove an entry from the route table.
 	 * @param dstIP destination IP of the entry to remove
