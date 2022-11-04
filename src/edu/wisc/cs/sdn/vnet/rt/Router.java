@@ -340,7 +340,7 @@ public class Router extends Device
 						handleIcmpEchoRequest(ipPacket, icmpPacket, inIface);
 					}
 				}
-				eles if(protocol == IPv4.PROTOCOL_UDP) {
+				else if(protocol == IPv4.PROTOCOL_UDP) {
 					UDP udpPacket = new UDP();
 					udpPacket = (UDP)ipPacket.getPayload();
 					if (udpPacket.getDestinationPort() == UDP.RIP_PORT) {
