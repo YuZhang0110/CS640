@@ -39,7 +39,9 @@ public class Router extends Device
 
 	/** Hashmap of queues */
 	private HashMap<Integer, Queue>  packetQueues;
-
+	
+	/** for RIP responses */
+	private Timer timer;
 	/**
 	 * Creates a router for a specific host.
 	 * @param host hostname for the router
