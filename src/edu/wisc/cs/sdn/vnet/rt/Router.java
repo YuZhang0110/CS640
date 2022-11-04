@@ -314,7 +314,6 @@ public class Router extends Device
 						while(atomicQueue.get() != null && atomicQueue.get().peek() != null){
 							atomicQueue.get().poll();
 						}
-						sendError(atomicInPacket.get(), atomicIface.get(), 3, 1, false);
 						return;
 					} catch(InterruptedException v) {
 						System.out.println(v);
