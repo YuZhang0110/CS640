@@ -343,7 +343,6 @@ public class Router extends Device
 
 		arp.setTargetHardwareAddress(ByteBuffer.allocate(8).putInt(0).array());
 		arp.setTargetProtocolAddress(nextHop);
-		ether.setPayload(arp);
-		return ether;
+		return arp;
 	}
 }
