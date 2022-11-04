@@ -35,7 +35,10 @@ public class Router extends Device
 	private RouteTable routeTable;
 
 	/** ARP cache for the router */
-	private ArpCache arpCache;
+	private static AtomicReference<ArpCache> atomicCache;
+
+	/** Hashmap of queues HOLY SHIT */
+	private HashMap<Integer, Queue>  packetQueues; 
 
 	/**
 	 * Creates a router for a specific host.
