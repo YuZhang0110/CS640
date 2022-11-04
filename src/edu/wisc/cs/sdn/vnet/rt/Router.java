@@ -289,7 +289,7 @@ public class Router extends Device
 						sendPacket(atomicEtherPacket.get(), atomicIface.get());
 						//System.out.println("1) Checking for "+nextH);
 						Thread.sleep(1000);
-						if(arpCache.get().lookup(nextH) != null){
+						if(arpCache.lookup(nextH) != null){
 							System.out.println("Found it!");
 							return;
 						}
@@ -297,7 +297,7 @@ public class Router extends Device
 						sendPacket(atomicEtherPacket.get(), atomicIface.get());
 						//System.out.println("2) Checking again for" + nextH);
 						Thread.sleep(1000);
-						if(arpCache.get().lookup(nextH) != null){
+						if(arpCache.lookup(nextH) != null){
 							System.out.println("Found it!");
 							return;
 						}
@@ -305,7 +305,7 @@ public class Router extends Device
 						sendPacket(atomicEtherPacket.get(), atomicIface.get());
 						//System.out.println("3) Checking again for" + nextH);
 						Thread.sleep(1000);
-						if(arpCache.get().lookup(nextH) != null){
+						if(arpCache.lookup(nextH) != null){
 							System.out.println("Found it!");
 							return;
 						}
