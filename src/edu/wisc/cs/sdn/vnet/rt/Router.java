@@ -205,7 +205,7 @@ public class Router extends Device
 
 		ripPacket.setCommand(isRequest ? RIPv2.COMMAND_REQUEST : RIPv2.COMMAND_RESPONSE);
 
-		for (RouteEntry entry : this.routeTable.getAll())
+		for (RouteEntry entry : this.routeTable.getRouteTable())
 		{
 			int address = entry.getDestinationAddress();
 			int mask = entry.getMaskAddress();
@@ -221,6 +221,29 @@ public class Router extends Device
 		this.sendPacket(ether, inIface);
 		return;
 	}
+
+	public void createRouteTable()
+	{
+		for (Iface ifaces : this.interfaces.values())
+		{
+			//int dstIp, int gwIp, int maskIp, Iface ifac
+			int mask = ifaces.getSubnetMask();
+			int destination = ifaces.getIpAddress() & mask;
+			
+			this.routeTable.insert(destination, 0, mask, ifaces, 1);
+		}
+		System.out.println(this.routeTable.toString());
+		
+		// Send initial RIP update request
+		for (Iface ifaces : this.interfaces.values())
+		{
+			this.sendRip(ifaces, true, true);
+		}
+		
+		this.timer = new Timer();
+		this.timer.scheduleAtFixedRate(new updateRIP(), 10000, 10000);
+	}
+	
 	private void handleRip(Ethernet etherPacket, Iface inIface)
 	{
 		// Check headers for conformance with RIPv2
@@ -317,7 +340,7 @@ public class Router extends Device
 						handleIcmpEchoRequest(ipPacket, icmpPacket, inIface);
 					}
 				}
-				else if(protocol == IPv4.PROTOCOL_UDP) {
+				eles if(protocol == IPv4.PROTOCOL_UDP) {
 					UDP udpPacket = new UDP();
 					udpPacket = (UDP)ipPacket.getPayload();
 					if (udpPacket.getDestinationPort() == UDP.RIP_PORT) {
@@ -597,10 +620,22 @@ public class Router extends Device
 		return ip;
 	}
 
-	private ICMP generateIcmpPacket(int type, int code){
+	private ICMP generateIcmpPacket(int type, int code) {
 		ICMP icmp = new ICMP();
 		icmp.setIcmpType((byte) type);
 		icmp.setIcmpCode((byte) code);
 		return icmp;
+	}
+	public void timedResponse(){
+		for (Iface iface : this.interfaces.values()) {
+			this.sendRip(iface, true, false);
+		}
+		return;
+	}
+    
+	class updateRIP extends TimerTask {
+		public void run() {
+			timedResponse();
+		}
 	}
 }
