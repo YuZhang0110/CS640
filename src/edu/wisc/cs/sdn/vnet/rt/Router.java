@@ -35,9 +35,9 @@ public class Router extends Device
 	private RouteTable routeTable;
 
 	/** ARP cache for the router */
-	private static AtomicReference<ArpCache> arpCache;
+	private ArpCache arpCache;
 
-	/** Hashmap of queues HOLY SHIT */
+	/** Hashmap of queues */
 	private HashMap<Integer, Queue>  packetQueues; 
 
 	/**
@@ -48,8 +48,7 @@ public class Router extends Device
 	{
 		super(host,logfile);
 		this.routeTable = new RouteTable();
-		this.arpCache = new AtomicReference(new ArpCache());
-		//this.arpCache = new ArpCache();
+		this.arpCache = new ArpCache();
 		this.packetQueues = new HashMap<Integer, Queue>();
 	}
 
