@@ -170,14 +170,14 @@ public class Router extends Device
 				&& ipPacket.getDestinationAddress()==IPv4.toIPv4Address("224.0.0.9")){
 			UDP udpPacket = (UDP) ipPacket.getPayload();
 			if(udpPacket.getDestinationPort()==UDP.RIP_PORT){
-				System.out.println("Recieved RIP packet!");
+				System.out.println(" RIP Recieved!");
 				RIPv2 rip=(RIPv2)udpPacket.getPayload();
 				if(rip.getCommand()==RIPv2.COMMAND_REQUEST){
 					Ethernet rip_resp=genRipResp(inIface.getIpAddress(),inIface.getMacAddress());
 					return;
 				}
 				if(rip.getCommand()==RIPv2.COMMAND_RESPONSE){
-					updateRip(etherPacket,inIface);
+					updateRouterTable(etherPacket,inIface);
 				}
 			}
 		}
@@ -462,6 +462,11 @@ public class Router extends Device
 		UDP udp = new UDP();
 		RIPv2 rip = new RIPv2();
 
+		//link packets together
+		ether.setPayload(ip);
+		ip.setPayload(udp);
+		udp.setPayload(rip);
+
 		//ethernet layer
 		ether.setEtherType(Ethernet.TYPE_IPv4);
 		ether.setDestinationMACAddress("FF:FF:FF:FF:FF:FF");
@@ -475,18 +480,13 @@ public class Router extends Device
 		//udp layer
 		udp.setSourcePort(UDP.RIP_PORT);
 		udp.setDestinationPort(UDP.RIP_PORT);
-		
-		for(RouteEntry entry : routeTable.getEntries()){
+		rip.setCommand(RIPv2.COMMAND_RESPONSE);
+
+		for(RouteEntry entry : routeTable.getEntries()) {
 			RIPv2Entry tmp=new RIPv2Entry(entry.getDestinationAddress(),entry.getMaskAddress(),entry.getDistance());
 			tmp.setNextHopAddress(entry.getDestinationAddress());
 			rip.addEntry(tmp);
 		}
-		rip.setCommand(RIPv2.COMMAND_RESPONSE);
-		
-		//link packets together
-		ether.setPayload(ip);
-		ip.setPayload(udp);
-		udp.setPayload(rip);
 		
 		//reset checksums
 		udp.resetChecksum();
@@ -552,7 +552,7 @@ public class Router extends Device
 	 * @param ether
 	 * @param inIface
 	 */
-	public synchronized void updateRip(Ethernet ether,Iface inIface){
+	public synchronized void updateRouterTable(Ethernet ether,Iface inIface){
 		IPv4 packet = (IPv4) ether.getPayload();
 		UDP udpPacket = (UDP) packet.getPayload();
 		RouteEntry inEntry=routeTable.lookup(packet.getSourceAddress());
@@ -565,19 +565,16 @@ public class Router extends Device
 			//If the term in RIP is not in the table
 			if(routeEntry==null){
 				routeTable.insert_rip(ripEntry.getAddress()&ripEntry.getSubnetMask(),packet.getSourceAddress(),ripEntry.getSubnetMask(),ripEntry.getMetric()+1,inIface);
+			}else if (routeEntry.getDistance()<=ripEntry.getMetric()+inEntry.getDistance()+1){
+				routeTable.update_time(ripEntry.getAddress()&ripEntry.getSubnetMask(),ripEntry.getSubnetMask());
 			}else{
-				if(routeEntry.getDistance()>ripEntry.getMetric()+inEntry.getDistance()+1){
-					routeTable.update_rip(ripEntry.getAddress()&ripEntry.getSubnetMask(), ripEntry.getSubnetMask(), packet.getSourceAddress() ,Math.max(ripEntry.getMetric()+inEntry.getDistance(),RIP_INFINITY),inIface);
-				}else{
-					//Update the time
-					routeTable.update_time(ripEntry.getAddress()&ripEntry.getSubnetMask(),ripEntry.getSubnetMask());
-				}
+				routeTable.update_rip(ripEntry.getAddress()&ripEntry.getSubnetMask(), ripEntry.getSubnetMask(), packet.getSourceAddress() ,Math.max(ripEntry.getMetric()+inEntry.getDistance(),RIP_INFINITY),inIface);
 			}
 		}
-		System.out.println("Updated dynamic route table");
-		System.out.println("-------------------------------------------------");
+		System.out.println("new route table is");
+		System.out.println("<------------------------------------------------>");
 		System.out.print(this.routeTable.toString());
-		System.out.println("-------------------------------------------------");
+		System.out.println("<------------------------------------------------>");
 	}
 	
 
