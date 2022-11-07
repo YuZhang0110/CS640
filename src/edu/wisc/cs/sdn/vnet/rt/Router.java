@@ -539,23 +539,24 @@ public class Router extends Device
 		{ return; }
 
 		int temp = bestMatch.getGatewayAddress();
-		if (0 == temp)
+		if (temp == 0)
 		{ temp = dstAddr; }
 		final int nextHop = temp;
-
+		if (arpQueues.containsKey(nextHop))
+		{
+			List<Ethernet> queue = arpQueues.get(nextHop);
+			queue.add(etherPacket);
+			return
+		}
 		Thread waitForReply = new Thread(new Runnable(){
 			public void run() {
-				if (arpQueues.containsKey(nextHop))
-				{
-					List<Ethernet> queue = arpQueues.get(nextHop);
-					queue.add(etherPacket);
-				}
+
 				try {
 					int count = 0;
 					while(count < 3) {
 						if (null != arpCache.lookup(nextHop)) 
 						{ 
-							break; 
+							return;
 						}
 						else 
 						{
@@ -568,9 +569,10 @@ public class Router extends Device
 					{   
 						if(null == arpCache.lookup(nextHop)) {
 							arpQueues.remove(nextHop);
-							sendICMP(etherPacket, inIface, 3, 3);
+							sendICMP(etherPacket, inIface, 3, 1);
 						}
 					} 
+					return;
 				} catch(InterruptedException v) {
 					System.out.println(v);
 				}
