@@ -542,47 +542,48 @@ public class Router extends Device
 		if (temp == 0)
 		{ temp = dstAddr; }
 		final int nextHop = temp;
-		if (arpQueues.containsKey(nextHop)) {
-			List<Ethernet> queue = arpQueues.get(nextHop);
+		synchronized(arpQueues){
+			if (arpQueues.containsKey(nextHop)) {
+				List<Ethernet> queue = arpQueues.get(nextHop);
+				queue.add(etherPacket);
+				return;
+			}
+			List<Ethernet> queue = new ArrayList<Ethernet>();
 			queue.add(etherPacket);
+			arpQueues.put(nextHop, queue);
+			Thread waitForReply = new Thread(new Runnable(){
+				public void run() {
+	
+					try {
+						int count = 0;
+						while(count < 3) {
+							if (null != arpCache.lookup(nextHop)) 
+							{ 
+								return;
+							}
+							else 
+							{
+								sendArp(ip, ARP_REQUEST, etherPacket, inIface, outIface);
+								count++;
+								Thread.sleep(1000);
+							}
+						}
+						if (count == 3 ) 
+						{   
+							if(null == arpCache.lookup(nextHop)) {
+								arpQueues.remove(nextHop);
+								sendICMP(etherPacket, inIface, 3, 1);
+							}
+						} 
+						return;
+					} catch(InterruptedException v) {
+						System.out.println(v);
+					}
+				}
+			});
+			waitForReply.start();
 			return;
 		}
-		List<Ethernet> queue = new ArrayList<Ethernet>();
-		queue.add(etherPacket);
-		arpQueues.put(nextHop, queue);
-		Thread waitForReply = new Thread(new Runnable(){
-			public void run() {
-
-				try {
-					int count = 0;
-					while(count < 3) {
-						if (null != arpCache.lookup(nextHop)) 
-						{ 
-							return;
-						}
-						else 
-						{
-							sendArp(ip, ARP_REQUEST, etherPacket, inIface, outIface);
-							count++;
-							Thread.sleep(1000);
-						}
-					}
-					if (count == 3 ) 
-					{   
-						if(null == arpCache.lookup(nextHop)) {
-							arpQueues.remove(nextHop);
-							sendICMP(etherPacket, inIface, 3, 1);
-						}
-					} 
-					return;
-				} catch(InterruptedException v) {
-					System.out.println(v);
-				}
-			}
-	    });
-		waitForReply.start();
-		return;
-
 	}
 
 	/*******************************************************************************
