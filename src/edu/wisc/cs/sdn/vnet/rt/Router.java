@@ -547,6 +547,9 @@ public class Router extends Device
 			queue.add(etherPacket);
 			return;
 		}
+		List<Ethernet> queue = new ArrayList<Ethernet>();
+		queue.add(etherPacket);
+		arpQueues.put(nextHop, queue);
 		Thread waitForReply = new Thread(new Runnable(){
 			public void run() {
 
