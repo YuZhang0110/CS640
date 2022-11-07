@@ -504,7 +504,7 @@ public class Router extends Device
 		RIPv2 rip = new RIPv2();
 
 		ether = this.genEthernetIpLayer(ether, ip, srcIP, srcMAC);
-		
+
 		//udp layer
 		udp.setSourcePort(UDP.RIP_PORT);
 		udp.setDestinationPort(UDP.RIP_PORT);
@@ -558,16 +558,6 @@ public class Router extends Device
 		ether.resetChecksum();
 		
 		return ether;
-	}
-	
-	/**
-	 * 
-	 */
-	public void broadRIPReq(){
-		for(Entry<String, Iface> entry : this.interfaces.entrySet()){
-			Iface iface = entry.getValue();
-			sendPacket(genRipReq(iface.getIpAddress(),iface.getMacAddress()), entry.getValue());
-		}
 	}
 
 	/**
