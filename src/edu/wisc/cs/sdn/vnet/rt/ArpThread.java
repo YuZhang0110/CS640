@@ -47,33 +47,32 @@ class ArpThread implements Runnable{
 	
 	public void run() {
 		int count=0;
-		//Send 3 ARP requests in one second intervals	
-		while(count<3)
-		{
-			//send ARPrequest
+		//Send 3 ARP requests in one second intervals
+		if(succ == false){
 			rt.sendPacket(arpReq, arpReqIface);
-			
 			//wait 1 second, should not be interrupted
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			count++;
-			System.out.println("Thread for IP: "+IP+", count"+count);
-			if(succ){
-				break;
-			}
+			Thread.sleep(1000);
+			System.out.println("Sending ARP PACKET IP: "+IP);
 		}
-		
-		succ=true;
+		if(succ == false){
+			rt.sendPacket(arpReq, arpReqIface);
+			//wait 1 second, should not be interrupted
+			Thread.sleep(1000);
+			System.out.println("Sending ARP PACKET IP: "+IP);
+		}
+		if(succ == false){
+			rt.sendPacket(arpReq, arpReqIface);
+			//wait 1 second, should not be interrupted
+			Thread.sleep(1000);
+			System.out.println("Sending ARP PACKET IP: "+IP);
+		}
+
+
 
 		//If the ARP reply made it in time, forward the queued packets to their next hop
-		if(arpReply!=null)
-		{
+		if(arpReply!=null) {
 			ARP arp=(ARP) arpReply.getPayload();
-			System.out.println("Thread for IP: "+IP+" get reply in time from"+Arrays.toString(arp.getSenderHardwareAddress()));
+			System.out.println("IP: "+IP+" get reply from"+Arrays.toString(arp.getSenderHardwareAddress()));
 			while(!waiting.isEmpty())
 			{
 				QueueElement tmp=waiting.poll();
@@ -82,12 +81,8 @@ class ArpThread implements Runnable{
 				//send the packets forward
 				rt.sendPacket(ether, arpRepIface);
 			}
-		}
-		//Else reply back with ICMP Dest Host Unreachable to each of the hosts who send a packet for this IP
-		else
-		{
-			while(!waiting.isEmpty())
-			{		
+		} else {//Else reply back with ICMP Dest Host Unreachable to each of the hosts who send a packet for this IP
+			while(!waiting.isEmpty()) {
 				waiting.poll();
 			}
 		}
