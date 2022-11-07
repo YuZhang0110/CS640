@@ -256,7 +256,26 @@ public class Router extends Device
 
 		this.sendPacket(etherPacket, outIface);
 	}
-
+	private MACAddress findNextHopMACAddress(int DestIP){
+		// 1. loop up the routeTable
+		RouteEntry routeEntry = this.routeTable.lookup(DestIP);
+		if(routeEntry == null){
+			System.err.println("No match Dest IP in routeTable.");
+			return null;
+		}
+		// 2. get the next hop IP address
+		int nextHopIP = routeEntry.getGatewayAddress();
+		if(nextHopIP == 0){
+			nextHopIP = DestIP;
+		}
+		// 3. find next hop MAC address from arpCache
+		ArpEntry arpEntry = this.arpCache.lookup(nextHopIP);
+		if(arpEntry == null){
+			System.err.println("ICMP: no nuch IP in arpCache");
+			return null;
+		};
+		return arpEntry.getMac();
+	}
 	private void sendICMPPacket(int type, int code, Iface iface, IPv4 ipPacket){
 		// 1. set Ethernet header
 		Ethernet ether = new Ethernet();
