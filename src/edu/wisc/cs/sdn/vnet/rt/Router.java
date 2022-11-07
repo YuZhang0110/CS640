@@ -116,21 +116,6 @@ public class Router extends Device
 		switch(etherPacket.getEtherType())
 		{
 			case Ethernet.TYPE_IPv4:
-				IPv4 ip = (IPv4)etherPacket.getPayload();
-				if (IPv4.toIPv4Address(IP_RIP_MULTICAST) == ip.getDestinationAddress())
-				{
-					if (IPv4.PROTOCOL_UDP == ip.getProtocol()) 
-					{
-						UDP udp = (UDP)ip.getPayload();
-						if (UDP.RIP_PORT == udp.getDestinationPort())
-						{ 
-							RIPv2 rip = (RIPv2)udp.getPayload();
-							this.handleRipPacket(rip.getCommand(), etherPacket, inIface);
-							break;
-						}
-					}
-				}
-
 				this.handleIpPacket(etherPacket, inIface);
 				break;
 			case Ethernet.TYPE_ARP:
@@ -336,6 +321,7 @@ public class Router extends Device
 		if (etherPacket.getEtherType() != Ethernet.TYPE_IPv4)
 			{ return; }
 
+		
 		for (Iface iface : this.interfaces.values()) {
 			arpCache.insert(iface.getMacAddress(), iface.getIpAddress());
 		}
@@ -358,13 +344,27 @@ public class Router extends Device
 		if (0 == ipPacket.getTtl())
 		{ 
 			if (debug_ARP) System.out.println("TIME_EXCEEDED");
-			sendICMP(TIME_EXCEEDED, etherPacket, inIface);
+			sendICMP(etherPacket, inIface, 11, 0);
 			return; 
 		}
 
 			// Reset checksum now that TTL is decremented
 		ipPacket.resetChecksum();
 
+
+		if (IPv4.toIPv4Address(IP_RIP_MULTICAST) == ipPacket.getDestinationAddress())
+		{
+			if (IPv4.PROTOCOL_UDP == ipPacket.getProtocol()) 
+			{
+				UDP udp = (UDP)ipPacket.getPayload();
+				if (UDP.RIP_PORT == udp.getDestinationPort())
+				{ 
+					RIPv2 rip = (RIPv2)udp.getPayload();
+					this.handleRipPacket(rip.getCommand(), etherPacket, inIface);
+					return;
+				}
+			}
+		}
 			// Check if packet is destined for one of router's interfaces
 		for (Iface iface : this.interfaces.values())
 		{
@@ -375,7 +375,7 @@ public class Router extends Device
 				if(protocol == IPv4.PROTOCOL_TCP || protocol == IPv4.PROTOCOL_UDP) 
 				{
 					if (debug_ARP) System.out.println("DEST_PORT_UNREACHABLE");
-					sendICMP(DEST_PORT_UNREACHABLE ,etherPacket, inIface);
+					sendICMP(etherPacket, inIface, 3, 0);
 				} 
 				else if (protocol == IPv4.PROTOCOL_ICMP) 
 				{
@@ -384,7 +384,7 @@ public class Router extends Device
 					if(icmpPacket.getIcmpType() == ICMP.TYPE_ECHO_REQUEST) 
 					{
 						if (debug_ARP) System.out.println("ICMP_ECHO_REPLY");
-						sendICMP(ICMP_ECHO_REPLY ,etherPacket, inIface);
+						sendICMP(etherPacket, inIface, 0, 0);
 					}
 				}
 				return;
@@ -413,7 +413,7 @@ public class Router extends Device
 		if (null == bestMatch)
 		{ 
 			if (debug_ARP) System.out.println("DEST_NET_UNREACHABLE");
-			sendICMP(DEST_NET_UNREACHABLE, etherPacket, inIface);
+			sendICMP(etherPacket, inIface,3, 0);
 			return; 
 		}
 
@@ -571,14 +571,12 @@ public class Router extends Device
 						{
 							if (counter > 2) 
 							{
-								if (debug_ARP) System.out.println("TimeOut\n" + arpCache.toString());
 								arpQueues.remove(nextHop);
-								sendICMP(DEST_HOST_UNREACHABLE, etherPacket, inIface);
+								sendICMP(etherPacket, inIface, 3, 3);
 								this.cancel();
 							} 
 							else 
 							{
-								if (debug_ARP) System.out.println("Timer  " + counter);
 								sendArp(ip, ARP_REQUEST, etherPacket, inIface, outIface);
 								counter++;
 							}
@@ -595,7 +593,7 @@ public class Router extends Device
 	***********************				  ICMP 				************************
 	*******************************************************************************/
 
-	private void sendICMP(int type, Ethernet etherPacket, Iface inIface)
+	private void sendICMP(Ethernet etherPacket, Iface inIface, byte type, byte code)
 	{
 		Ethernet ether = new Ethernet();
 		IPv4 ip = new IPv4();
@@ -619,11 +617,11 @@ public class Router extends Device
 		ArpEntry arpEntry = this.arpCache.lookup(nextHop);
 		if (null == arpEntry)
 		{  	
-			if (debug_ARP) System.out.println("arp miss icmp");
 			handleArpMiss(nextHop, etherPacket, inIface, inIface);
 			return;   
 		}
-
+		icmp.setIcmpType(type);
+		icmp.setIcmpCode(code);
 		ether.setEtherType(Ethernet.TYPE_IPv4);
 		ether.setSourceMACAddress(inIface.getMacAddress().toBytes());
 		ether.setDestinationMACAddress(arpEntry.getMac().toBytes());
@@ -654,32 +652,6 @@ public class Router extends Device
 			iData = ((ICMP)ipPacket.getPayload()).getPayload().serialize();
 		}
 
-
-		switch(type) 
-		{
-			case TIME_EXCEEDED:
-			icmp.setIcmpType((byte)11);
-			icmp.setIcmpCode((byte)0);
-			break;
-			case DEST_NET_UNREACHABLE:
-			icmp.setIcmpType((byte)3);
-			icmp.setIcmpCode((byte)0);
-			break;
-			case DEST_HOST_UNREACHABLE:
-			icmp.setIcmpType((byte)3);
-			icmp.setIcmpCode((byte)1);
-			break;
-			case DEST_PORT_UNREACHABLE:
-			icmp.setIcmpType((byte)3);
-			icmp.setIcmpCode((byte)3);
-			break;
-			case ICMP_ECHO_REPLY:
-			icmp.setIcmpType((byte)0);
-			icmp.setIcmpCode((byte)0);
-			break;
-			default:
-			return;
-		}
 
 		data.setData(iData);
 		ether.setPayload(ip);
