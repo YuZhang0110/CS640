@@ -576,6 +576,8 @@ public class Router extends Device
 				}
 			}
 	    });
+		waitForReply.start();
+		return;
 
 	}
 
