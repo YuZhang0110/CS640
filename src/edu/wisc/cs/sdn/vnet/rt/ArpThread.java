@@ -46,27 +46,29 @@ class ArpThread implements Runnable{
 	}
 	
 	public void run() {
-		int count=0;
+		try {
 		//Send 3 ARP requests in one second intervals
-		if(succ == false){
-			rt.sendPacket(arpReq, arpReqIface);
-			//wait 1 second, should not be interrupted
-			Thread.sleep(1000);
-			System.out.println("Sending ARP PACKET IP: "+IP);
+			if(succ == false){
+				rt.sendPacket(arpReq, arpReqIface);
+				//wait 1 second, should not be interrupted
+				Thread.sleep(1000);
+				System.out.println("Sending ARP PACKET IP: "+IP);
+			}
+			if(succ == false){
+				rt.sendPacket(arpReq, arpReqIface);
+				//wait 1 second, should not be interrupted
+				Thread.sleep(1000);
+				System.out.println("Sending ARP PACKET IP: "+IP);
+			}
+			if(succ == false){
+				rt.sendPacket(arpReq, arpReqIface);
+				//wait 1 second, should not be interrupted
+				Thread.sleep(1000);
+				System.out.println("Sending ARP PACKET IP: "+IP);
+			}
+		} catch(InterruptedException v) {
+			System.out.println(v);
 		}
-		if(succ == false){
-			rt.sendPacket(arpReq, arpReqIface);
-			//wait 1 second, should not be interrupted
-			Thread.sleep(1000);
-			System.out.println("Sending ARP PACKET IP: "+IP);
-		}
-		if(succ == false){
-			rt.sendPacket(arpReq, arpReqIface);
-			//wait 1 second, should not be interrupted
-			Thread.sleep(1000);
-			System.out.println("Sending ARP PACKET IP: "+IP);
-		}
-
 
 
 		//If the ARP reply made it in time, forward the queued packets to their next hop
