@@ -131,7 +131,36 @@ public class Router extends Device
 
 		/********************************************************************/
 	}
+	private void handleIcmpEchoRequest(IPv4 ipPacket, ICMP icmpPacket, Iface inIface){
+		System.out.println("handling an ICMP echo request");
+		Ethernet echoReply = getCommonEchoReply(ipPacket, icmpPacket, inIface);
+		sendPacket(echoReply, inIface);
+	}
 
+	private Ethernet getCommonEchoReply(IPv4 ipPacket, ICMP icmpPacket, Iface inIface){
+		// 1. set Ethernet header
+		Ethernet ether = new Ethernet();
+		ether.setEtherType(Ethernet.TYPE_IPv4);
+		ether.setSourceMACAddress(inIface.getMacAddress().toBytes());
+		int nextHop = this.routeTable.lookup(ipPacket.getSourceAddress()).getGatewayAddress();
+		if (nextHop == 0) {
+			nextHop = ipPacket.getSourceAddress();
+		}
+		ether.setDestinationMACAddress(this.arpCache.lookup(nextHop).getMac().toBytes());
+
+		// 2. set IP header
+		IPv4 ip = generateIpPacket(IPv4.PROTOCOL_ICMP, ipPacket.getDestinationAddress(), ipPacket.getSourceAddress());
+
+		// 3. set ICMP header
+		ICMP icmp = generateIcmpPacket(0, 0);
+
+		// 4. assemble the Packet
+		ether.setPayload(ip);
+		ip.setPayload(icmp);
+		Data icmpRequestPayload = (Data) icmpPacket.getPayload();
+		icmp.setPayload(icmpRequestPayload);
+		return ether;
+	}
 	private void handleIpPacket(Ethernet etherPacket, Iface inIface)
 	{
 		// Make sure it's an IP packet
@@ -157,7 +186,6 @@ public class Router extends Device
 		{
 			// A. Timer expired
 			sendICMPPacket((byte)11, (byte)0, inIface, ipPacket);
-
 			return;
 		}
 
@@ -195,7 +223,7 @@ public class Router extends Device
 				else if(ipPacket.getProtocol() == IPv4.PROTOCOL_ICMP){
 					ICMP icmp = (ICMP) ipPacket.getPayload();
 					if(icmp.getIcmpType() == ICMP.TYPE_ECHO_REQUEST){
-						sendICMPPacket((byte)0, (byte)0, inIface, ipPacket);
+						handleIcmpEchoRequest(ipPacket, icmpPacket, inIface);
 					}
 				}
 
@@ -249,7 +277,6 @@ public class Router extends Device
 		{
 			// B. Destination Unreachable
 			sendICMPPacket((byte)3, (byte)1, inIface, ipPacket);
-
 			return;
 		}
 		etherPacket.setDestinationMACAddress(arpEntry.getMac().toBytes());
