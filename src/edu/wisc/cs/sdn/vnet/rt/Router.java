@@ -23,14 +23,14 @@ public class Router extends Device
 	private Map<Integer, List<Ethernet>> arpQueues;
 	private Map<Integer, LocalRipEntry> ripMap;
 
-	//private final boolean debug_ARP = false;
+	private final boolean debug_ARP = false;
 	private final boolean debug_RIP = false;
 
-	//private final int TIME_EXCEEDED = 0;
-	//private final int DEST_NET_UNREACHABLE = 1;
-	//private final int DEST_HOST_UNREACHABLE = 2;
-	//private final int DEST_PORT_UNREACHABLE = 3;
-	//private final int ICMP_ECHO_REPLY = 4;
+	private final int TIME_EXCEEDED = 0;
+	private final int DEST_NET_UNREACHABLE = 1;
+	private final int DEST_HOST_UNREACHABLE = 2;
+	private final int DEST_PORT_UNREACHABLE = 3;
+	private final int ICMP_ECHO_REPLY = 4;
 
 	private final int ARP_REQUEST = 0;
 	private final int ARP_REPLY = 1;
@@ -182,6 +182,7 @@ public class Router extends Device
 		timer.schedule(unsolTask, 0, 10000);
 		timer.schedule(toTask, 0, 1000);
 	}
+
 	private void handleRipResponse(Ethernet etherPacket, Iface inIface)
 	{
 		IPv4 ip = (IPv4)etherPacket.getPayload();
@@ -233,16 +234,16 @@ public class Router extends Device
 			}
 		}
 	}
+
 	private void handleRipPacket(byte type, Ethernet etherPacket, Iface inIface) 
 	{
 		switch(type)
 		{
 			case RIPv2.COMMAND_REQUEST:
-				//System.out.println("Send RIP response");
+				if (debug_RIP) System.out.println("Send RIP response");
 				sendRip(RIP_RESPONSE, etherPacket, inIface);
 				break;
 			case RIPv2.COMMAND_RESPONSE:
-				//handleRipResponse(etherPacket, inIface);
 				IPv4 ip = (IPv4)etherPacket.getPayload();
 				UDP udp = (UDP)ip.getPayload();
 				RIPv2 rip = (RIPv2)udp.getPayload();
@@ -297,14 +298,16 @@ public class Router extends Device
 						}
 					}
 				}
+				handleRipResponse(etherPacket, inIface);
 				break;
 			default:
 				break;
 		}
 	}
-	/*
-	private void genRipPacket(int type, RIPv2 rip)
+
+	private RIPv2 genRipPacket(int type)
 	{
+		RIPv2 rip = new RIPv2();
 		if(type == RIP_UNSOL) {
 			rip.setCommand(RIPv2.COMMAND_RESPONSE);
 		} 
@@ -325,13 +328,14 @@ public class Router extends Device
 			}
 		}
 		rip.setEntries(entries);
+		return rip;
 	}
+
 	private void sendRip(int type, Ethernet etherPacket, Iface iface) 
 	{
 		Ethernet ether = new Ethernet();
 		IPv4 ip = new IPv4();
 		UDP udp = new UDP();
-		RIPv2 rip = new RIPv2();
 
 		ether.setSourceMACAddress(iface.getMacAddress().toBytes());
 		ether.setEtherType(Ethernet.TYPE_IPv4);
@@ -342,7 +346,7 @@ public class Router extends Device
 
 		udp.setSourcePort(UDP.RIP_PORT);
 		udp.setDestinationPort(UDP.RIP_PORT);
-		genRipPacket(type, rip);
+		RIPv2 rip = genRipPacket(type);
 		if(type == RIP_UNSOL || type == RIP_REQUEST) {
 			ether.setDestinationMACAddress(MAC_BROADCAST);
 			ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
@@ -352,54 +356,6 @@ public class Router extends Device
 
 			ether.setDestinationMACAddress(ether.getSourceMACAddress());
 			ip.setDestinationAddress(ipPacket.getSourceAddress());
-		}
-
-		ether.setPayload(ip);
-		ip.setPayload(udp);
-		udp.setPayload(rip);
-		
-		//System.out.println("Sending RIP packet to " + IPv4.fromIPv4Address(ip.getDestinationAddress()));
-		sendPacket(ether, iface);
-	}
-    */
-	private void sendRip(int type, Ethernet etherPacket, Iface iface) 
-	{
-		Ethernet ether = new Ethernet();
-		IPv4 ip = new IPv4();
-		UDP udp = new UDP();
-		RIPv2 rip = new RIPv2();
-
-		ether.setSourceMACAddress(iface.getMacAddress().toBytes());
-		ether.setEtherType(Ethernet.TYPE_IPv4);
-
-		ip.setTtl((byte)64);
-		ip.setProtocol(IPv4.PROTOCOL_UDP);
-		ip.setSourceAddress(iface.getIpAddress());
-
-		udp.setSourcePort(UDP.RIP_PORT);
-		udp.setDestinationPort(UDP.RIP_PORT);
-
-		switch(type)
-		{
-			case RIP_UNSOL:
-				rip.setCommand(RIPv2.COMMAND_RESPONSE);
-				ether.setDestinationMACAddress(MAC_BROADCAST);
-				ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
-				break;
-			case RIP_REQUEST:
-				rip.setCommand(RIPv2.COMMAND_REQUEST);
-				ether.setDestinationMACAddress(MAC_BROADCAST);
-				ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
-				break;
-			case RIP_RESPONSE:
-				IPv4 ipPacket = (IPv4)etherPacket.getPayload();
-
-				rip.setCommand(RIPv2.COMMAND_RESPONSE);
-				ether.setDestinationMACAddress(ether.getSourceMACAddress());
-				ip.setDestinationAddress(ipPacket.getSourceAddress());
-				break;
-			default:
-				break;
 		}
 
 		List<RIPv2Entry> entries = new ArrayList<RIPv2Entry>();
@@ -420,6 +376,7 @@ public class Router extends Device
 		if (debug_RIP) System.out.println("Sending RIP packet to " + IPv4.fromIPv4Address(ip.getDestinationAddress()));
 		sendPacket(ether, iface);
 	}
+
 	/*******************************************************************************
 	***********************				  IP 				************************
 	*******************************************************************************/
