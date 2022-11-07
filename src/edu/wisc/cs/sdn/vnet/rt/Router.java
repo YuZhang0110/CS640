@@ -248,6 +248,7 @@ public class Router extends Device
 				break;
 		}
 	}
+	/*
 	private void genRipPacket(int type, RIPv2 rip)
 	{
 		if(type == RIP_UNSOL) {
@@ -306,7 +307,65 @@ public class Router extends Device
 		//System.out.println("Sending RIP packet to " + IPv4.fromIPv4Address(ip.getDestinationAddress()));
 		sendPacket(ether, iface);
 	}
+    */
+	private void sendRip(int type, Ethernet etherPacket, Iface iface) 
+	{
+		Ethernet ether = new Ethernet();
+		IPv4 ip = new IPv4();
+		UDP udp = new UDP();
+		RIPv2 rip = new RIPv2();
 
+		ether.setSourceMACAddress(iface.getMacAddress().toBytes());
+		ether.setEtherType(Ethernet.TYPE_IPv4);
+
+		ip.setTtl((byte)64);
+		ip.setProtocol(IPv4.PROTOCOL_UDP);
+		ip.setSourceAddress(iface.getIpAddress());
+
+		udp.setSourcePort(UDP.RIP_PORT);
+		udp.setDestinationPort(UDP.RIP_PORT);
+
+		switch(type)
+		{
+			case RIP_UNSOL:
+				rip.setCommand(RIPv2.COMMAND_RESPONSE);
+				ether.setDestinationMACAddress(MAC_BROADCAST);
+				ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
+				break;
+			case RIP_REQUEST:
+				rip.setCommand(RIPv2.COMMAND_REQUEST);
+				ether.setDestinationMACAddress(MAC_BROADCAST);
+				ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
+				break;
+			case RIP_RESPONSE:
+				IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+
+				rip.setCommand(RIPv2.COMMAND_RESPONSE);
+				ether.setDestinationMACAddress(ether.getSourceMACAddress());
+				ip.setDestinationAddress(ipPacket.getSourceAddress());
+				break;
+			default:
+				break;
+		}
+
+		List<RIPv2Entry> entries = new ArrayList<RIPv2Entry>();
+		synchronized(this.ripMap)
+		{
+			for (LocalRipEntry localEntry : ripMap.values())
+			{
+				RIPv2Entry entry = new RIPv2Entry(localEntry.addr, localEntry.mask, localEntry.metric);
+				entries.add(entry);
+			}
+		}
+
+		ether.setPayload(ip);
+		ip.setPayload(udp);
+		udp.setPayload(rip);
+		rip.setEntries(entries);
+
+		if (debug_RIP) System.out.println("Sending RIP packet to " + IPv4.fromIPv4Address(ip.getDestinationAddress()));
+		sendPacket(ether, iface);
+	}
 	/*******************************************************************************
 	***********************				  IP 				************************
 	*******************************************************************************/
