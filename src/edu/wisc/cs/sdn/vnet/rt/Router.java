@@ -276,7 +276,75 @@ public class Router extends Device
 		if (null == arpEntry)
 		{
 			// B. Destination Unreachable
-			sendICMPPacket((byte)3, (byte)1, inIface, ipPacket);
+			ARP arp = new ARP();
+			arp = generateArpRequest(etherPacket, inIface, nextHop);
+
+			final AtomicReference<Ethernet> atomicEtherPacket = new AtomicReference(new Ethernet());
+			final AtomicReference<Iface> atomicIface = new AtomicReference(outIface);
+			final AtomicReference<Ethernet> atomicInPacket = new AtomicReference(etherPacket);
+
+			atomicEtherPacket.get().setEtherType(Ethernet.TYPE_ARP);
+			atomicEtherPacket.get().setSourceMACAddress(inIface.getMacAddress().toBytes());
+
+			atomicEtherPacket.get().setPayload(arp);
+			atomicEtherPacket.get().setDestinationMACAddress("FF:FF:FF:FF:FF:FF");
+			atomicEtherPacket.get().serialize();
+
+			Integer next = new Integer(nextHop);
+
+			if(!packetQueues.containsKey(next)){
+				packetQueues.put(next, new LinkedList());
+				System.out.println("making new one");
+			}
+			Queue nextHopQueue = packetQueues.get(next);
+			nextHopQueue.add(etherPacket);
+			final AtomicReference<Queue> atomicQueue = new AtomicReference(nextHopQueue);
+
+			//System.out.println("Sending packets for: "+nextHop);
+			final int nextH = nextHop;
+
+			Thread waitForReply = new Thread(new Runnable(){
+
+
+				public void run() {
+
+					try {
+						System.out.println("Sending ARP PACKET********\n"+atomicEtherPacket.get()+"\n*******************");
+						sendPacket(atomicEtherPacket.get(), atomicIface.get());
+						//System.out.println("1) Checking for "+nextH);
+						Thread.sleep(1000);
+						if(arpCache.lookup(nextH) != null){
+							System.out.println("Found it!");
+							return;
+						}
+						System.out.println("Sending ARP PACKET********\n"+atomicEtherPacket.get()+"\n*******************");
+						sendPacket(atomicEtherPacket.get(), atomicIface.get());
+						//System.out.println("2) Checking again for" + nextH);
+						Thread.sleep(1000);
+						if(arpCache.lookup(nextH) != null){
+							System.out.println("Found it!");
+							return;
+						}
+						System.out.println("Sending ARP PACKET********\n"+atomicEtherPacket.get()+"\n*******************");
+						sendPacket(atomicEtherPacket.get(), atomicIface.get());
+						//System.out.println("3) Checking again for" + nextH);
+						Thread.sleep(1000);
+						if(arpCache.lookup(nextH) != null){
+							System.out.println("Found it!");
+							return;
+						}
+
+						while(atomicQueue.get() != null && atomicQueue.get().peek() != null){
+							atomicQueue.get().poll();
+						}
+						sendICMPPacket(3,1, inIface, ipPacket);
+						return;
+					} catch(InterruptedException v) {
+						System.out.println(v);
+					}
+				}
+			});
+			waitForReply.start();
 			return;
 		}
 		etherPacket.setDestinationMACAddress(arpEntry.getMac().toBytes());
