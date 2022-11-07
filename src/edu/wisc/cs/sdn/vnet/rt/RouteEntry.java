@@ -22,11 +22,6 @@ public class RouteEntry
 	 * the destination or gateway */
 	private Iface iface;
 	
-	/** Distance to the Destination */
-	private int distance;
-	
-	public long lastUpdateTime;
-	
 	/**
 	 * Create a new route table entry.
 	 * @param destinationAddress destination IP address
@@ -82,18 +77,5 @@ public class RouteEntry
 				IPv4.fromIPv4Address(this.gatewayAddress),
 				IPv4.fromIPv4Address(this.maskAddress),
 				this.iface.getName());
-	}
-	
-	public int getDistance(){
-		return this.distance;
-	}
-	public void setDistance(int d){
-		this.distance=d;
-	}
-	public long getTimestamp(){
-		return this.lastUpdateTime;
-	}
-	public void setTimestamp(){
-		this.lastUpdateTime=System.currentTimeMillis();
 	}
 }

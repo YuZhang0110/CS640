@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -20,21 +19,14 @@ import edu.wisc.cs.sdn.vnet.Iface;
  */
 public class RouteTable 
 {
-	private final long TIMEOUT_MS = 30*1000; /* 15 sec */
-	
 	/** Entries in the route table */
 	private List<RouteEntry> entries; 
-	
-	private boolean dynamic;
 	
 	/**
 	 * Initialize an empty route table.
 	 */
 	public RouteTable()
-	{ 
-		this.entries = new LinkedList<RouteEntry>(); 
-		this.dynamic = false;
-	}
+	{ this.entries = new LinkedList<RouteEntry>(); }
 	
 	/**
 	 * Lookup the route entry that matches a given IP address.
@@ -175,16 +167,6 @@ public class RouteTable
             this.entries.add(entry);
         }
 	}
-	public void insert_rip(int dstIp, int gwIp, int maskIp,int dist, Iface iface)
-	{
-		RouteEntry entry = new RouteEntry(dstIp, gwIp, maskIp, iface);
-		entry.setDistance(dist);
-		entry.setTimestamp();
-        synchronized(this.entries)
-        { 
-            this.entries.add(entry);
-        }
-	}
 	
 	/**
 	 * Remove an entry from the route table.
@@ -225,29 +207,6 @@ public class RouteTable
         }
         return true;
 	}
-	public boolean update_rip(int dstIp, int maskIp, int gwIp, int dist, Iface iface)
-	{
-        synchronized(this.entries)
-        {
-            RouteEntry entry = this.find(dstIp, maskIp);
-            if (null == entry)
-            { return false; }
-            entry.setGatewayAddress(gwIp);
-            entry.setInterface(iface);
-			entry.setDistance(dist);
-			entry.setTimestamp();
-        }
-        return true;
-	}
-	public void update_time(int dstIp,int maskIp){
-		synchronized(this.entries)
-        {
-            RouteEntry entry = this.find(dstIp, maskIp);
-            if (null == entry)
-            { return ;}
-			entry.setTimestamp();
-        }
-	}
 
     /**
 	 * Find an entry in the route table.
@@ -281,25 +240,5 @@ public class RouteTable
             { result += entry.toString()+"\n"; }
 		    return result;
         }
-	}
-	public void setDynamic(){
-		this.dynamic=true;
-	}
-	public boolean isDynamic(){
-		return this.dynamic;
-	}
-	public List<RouteEntry> getEntries(){
-		return this.entries;
-	}
-	public synchronized void cleanTable(){
-		long curTime = System.currentTimeMillis();
-		Iterator<RouteEntry> iter = entries.iterator();
-		while (iter.hasNext()){
-			RouteEntry entry=iter.next();
-			if(entry!=null&&curTime-entry.getTimestamp() > TIMEOUT_MS){
-				System.out.println("Removing......");
-				iter.remove();
-			}
-		}
 	}
 }
