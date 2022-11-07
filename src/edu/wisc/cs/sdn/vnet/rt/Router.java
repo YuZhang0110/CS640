@@ -375,7 +375,7 @@ public class Router extends Device
 				if(protocol == IPv4.PROTOCOL_TCP || protocol == IPv4.PROTOCOL_UDP) 
 				{
 					if (debug_ARP) System.out.println("DEST_PORT_UNREACHABLE");
-					sendICMP(etherPacket, inIface, 3, 0);
+					sendICMP(etherPacket, inIface, 3, 3);
 				} 
 				else if (protocol == IPv4.PROTOCOL_ICMP) 
 				{
