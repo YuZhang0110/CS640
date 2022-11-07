@@ -304,7 +304,7 @@ public class Router extends Device
 
 		this.forwardIpPacket(ether, null);
 	}
-	private void handleARPRequest(Ethernet etherPacket, Iface inIface){
+	private void handleARPRequest(ARP arpPacket,Ethernet etherPacket, Iface inIface){
 		ARP arpHeader=new ARP();
 		arpHeader.setHardwareType(ARP.HW_TYPE_ETHERNET);
 		arpHeader.setProtocolType(ARP.PROTO_TYPE_IP);
@@ -327,7 +327,7 @@ public class Router extends Device
 
 		return;
 	}
-	private void handleARPReply(Ethernet etherPacket, Iface inIface, int sourceIP){
+	private void handleARPReply(ARP arpPacket, Ethernet etherPacket, Iface inIface, int sourceIP){
 		//process arp replies
 		System.out.println("\nProcessing the arp replies");
 		//Consider only if ARP cache value for this IP is missing
@@ -365,9 +365,9 @@ public class Router extends Device
 
 		if(inIface.getIpAddress()== targetIP) {
 			if(arpPacket.getOpCode() == ARP.OP_REQUEST){
-				this.handleARPRequest(etherPacket, inIface, sourceIP);
+				this.handleARPRequest(arpPacket, etherPacket, inIface, sourceIP);
 			} else{
-				this.handleARPReply(etherPacket, inIface);
+				this.handleARPReply(arpPacket, etherPacket, inIface);
 			}
 		} else{
 			System.out.println("\nARP packet not for our inIface: "+inIface.toString());
