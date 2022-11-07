@@ -223,7 +223,7 @@ public class Router extends Device
 				else if(ipPacket.getProtocol() == IPv4.PROTOCOL_ICMP){
 					ICMP icmp = (ICMP) ipPacket.getPayload();
 					if(icmp.getIcmpType() == ICMP.TYPE_ECHO_REQUEST){
-						handleIcmpEchoRequest(ipPacket, icmpPacket, inIface);
+						handleIcmpEchoRequest(ipPacket, icmp, inIface);
 					}
 				}
 
