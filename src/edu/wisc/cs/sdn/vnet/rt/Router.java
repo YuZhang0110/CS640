@@ -343,7 +343,6 @@ public class Router extends Device
 		ipPacket.setTtl((byte)(ipPacket.getTtl()-1));
 		if (0 == ipPacket.getTtl())
 		{ 
-			if (debug_ARP) System.out.println("TIME_EXCEEDED");
 			sendICMP(etherPacket, inIface, 11, 0);
 			return; 
 		}
@@ -374,7 +373,6 @@ public class Router extends Device
 
 				if(protocol == IPv4.PROTOCOL_TCP || protocol == IPv4.PROTOCOL_UDP) 
 				{
-					if (debug_ARP) System.out.println("DEST_PORT_UNREACHABLE");
 					sendICMP(etherPacket, inIface, 3, 3);
 				} 
 				else if (protocol == IPv4.PROTOCOL_ICMP) 
@@ -383,7 +381,6 @@ public class Router extends Device
 
 					if(icmpPacket.getIcmpType() == ICMP.TYPE_ECHO_REQUEST) 
 					{
-						if (debug_ARP) System.out.println("ICMP_ECHO_REPLY");
 						sendICMP(etherPacket, inIface, 0, 0);
 					}
 				}
@@ -412,7 +409,6 @@ public class Router extends Device
 			// If no entry matched, do nothing
 		if (null == bestMatch)
 		{ 
-			if (debug_ARP) System.out.println("DEST_NET_UNREACHABLE");
 			sendICMP(etherPacket, inIface,3, 0);
 			return; 
 		}
@@ -546,47 +542,41 @@ public class Router extends Device
 		if (0 == temp)
 		{ temp = dstAddr; }
 		final int nextHop = temp;
-		synchronized(arpQueues)
-		{
-			if (arpQueues.containsKey(nextHop))
-			{
-				List<Ethernet> queue = arpQueues.get(nextHop);
-				queue.add(etherPacket);
-			}
-			else 
-			{
-				List<Ethernet> queue = new ArrayList<Ethernet>();
-				queue.add(etherPacket);
-				arpQueues.put(nextHop, queue);
-				TimerTask task = new TimerTask()
+
+		Thread waitForReply = new Thread(new Runnable(){
+			public void run() {
+				if (arpQueues.containsKey(nextHop))
 				{
-					int counter = 0;
-					public void run()
-					{
+					List<Ethernet> queue = arpQueues.get(nextHop);
+					queue.add(etherPacket);
+				}
+				try {
+					int count = 0;
+					while(count < 3) {
 						if (null != arpCache.lookup(nextHop)) 
 						{ 
-							this.cancel(); 
+							break; 
 						}
 						else 
 						{
-							if (counter > 2) 
-							{
-								arpQueues.remove(nextHop);
-								sendICMP(etherPacket, inIface, 3, 3);
-								this.cancel();
-							} 
-							else 
-							{
-								sendArp(ip, ARP_REQUEST, etherPacket, inIface, outIface);
-								counter++;
-							}
+							sendArp(ip, ARP_REQUEST, etherPacket, inIface, outIface);
+							count++;
+							Thread.sleep(1000);
 						}
 					}
-				};
-				Timer timer = new Timer(true);
-				timer.schedule(task, 0, 1000);
+					if (count == 3 ) 
+					{   
+						if(null == arpCache.lookup(nextHop)) {
+							arpQueues.remove(nextHop);
+							sendICMP(etherPacket, inIface, 3, 3);
+						}
+					} 
+				} catch(InterruptedException v) {
+					System.out.println(v);
+				}
 			}
-		}
+	    });
+
 	}
 
 	/*******************************************************************************
@@ -605,8 +595,7 @@ public class Router extends Device
 		int srcAddr = ipPacket.getSourceAddress();
 		RouteEntry bestMatch = this.routeTable.lookup(srcAddr);
 		if (null == bestMatch)
-		{  	
-			if (debug_ARP) System.out.println("No best match");
+		{
 			return;   
 		}
 
@@ -632,7 +621,7 @@ public class Router extends Device
 
 		byte[] iData;
 
-		if (ICMP_ECHO_REPLY != type) 
+		if (type != 0) 
 		{
 			ip.setSourceAddress(inIface.getIpAddress());
 
@@ -644,7 +633,7 @@ public class Router extends Device
 			Arrays.fill(iData, 0, 4, (byte)0);
 
 			for (int i = 0; i < ipHLength + 8; i++) 
-				{ iData[i + 4] = ipHP[i]; }
+			{ iData[i + 4] = ipHP[i]; }
 		}
 		else
 		{ 
@@ -658,7 +647,6 @@ public class Router extends Device
 		ip.setPayload(icmp);
 		icmp.setPayload(data);
 
-		if (debug_ARP) System.out.println("Send ICMP");
 		this.sendPacket(ether, inIface);
 	}
 }
