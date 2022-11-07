@@ -375,53 +375,7 @@ public class Router extends Device
 			return;
 		}
 	}
-
-	/**
-	 * 
-	 * @param etherPacket
-	 * @param outIface
-	 * @return
-	 */
-	 public Ethernet genArpReq(Ethernet etherPacket, Iface outIface)
-	{
-		IPv4 ipv4Packet = (IPv4)etherPacket.getPayload();
-		
-		byte [] broadcast= { (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff };
-		byte [] targHWAdd={0,0,0,0,0,0};
-		
-		Ethernet ether = new Ethernet();
-		ARP arp = new ARP();
-		
-		//create Ethernet Header
-		ether.setEtherType(Ethernet.TYPE_ARP);
-		ether.setSourceMACAddress(outIface.getMacAddress().toBytes());
-		ether.setDestinationMACAddress(broadcast);
-		
-		// create ARP Header
-		arp.setHardwareType(ARP.HW_TYPE_ETHERNET);
-		arp.setProtocolType(ARP.PROTO_TYPE_IP);
-		arp.setHardwareAddressLength((byte)(Ethernet.DATALAYER_ADDRESS_LENGTH & 0xff));
-		arp.setProtocolAddressLength((byte)4);
-		arp.setOpCode(ARP.OP_REQUEST);
-		arp.setSenderHardwareAddress(outIface.getMacAddress().toBytes());
-		arp.setSenderProtocolAddress(IPv4.toIPv4AddressBytes(outIface.getIpAddress()));
-		arp.setTargetHardwareAddress(targHWAdd);
-		
-		//Target Protocol is IP of next Hop
-		int targetIP;
-		RouteEntry routeEntry = routeTable.lookup(ipv4Packet.getDestinationAddress());
-		if(routeEntry.getGatewayAddress()==0)
-			targetIP=ipv4Packet.getDestinationAddress();
-		else
-			targetIP=routeEntry.getGatewayAddress();
-
-		arp.setTargetProtocolAddress(targetIP);
-		
-		//link the header
-		ether.setPayload(arp);
-		
-		return ether;
-	}
+	
 	/** 
 	 * Initiate RIP
 	 */
