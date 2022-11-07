@@ -23,14 +23,14 @@ public class Router extends Device
 	private Map<Integer, List<Ethernet>> arpQueues;
 	private Map<Integer, LocalRipEntry> ripMap;
 
-	private final boolean debug_ARP = false;
+	//private final boolean debug_ARP = false;
 	private final boolean debug_RIP = false;
 
-	private final int TIME_EXCEEDED = 0;
-	private final int DEST_NET_UNREACHABLE = 1;
-	private final int DEST_HOST_UNREACHABLE = 2;
-	private final int DEST_PORT_UNREACHABLE = 3;
-	private final int ICMP_ECHO_REPLY = 4;
+	//private final int TIME_EXCEEDED = 0;
+	//private final int DEST_NET_UNREACHABLE = 1;
+	//private final int DEST_HOST_UNREACHABLE = 2;
+	//private final int DEST_PORT_UNREACHABLE = 3;
+	//private final int ICMP_ECHO_REPLY = 4;
 
 	private final int ARP_REQUEST = 0;
 	private final int ARP_REPLY = 1;
@@ -242,7 +242,61 @@ public class Router extends Device
 				sendRip(RIP_RESPONSE, etherPacket, inIface);
 				break;
 			case RIPv2.COMMAND_RESPONSE:
-				handleRipResponse(etherPacket, inIface);
+				//handleRipResponse(etherPacket, inIface);
+				IPv4 ip = (IPv4)etherPacket.getPayload();
+				UDP udp = (UDP)ip.getPayload();
+				RIPv2 rip = (RIPv2)udp.getPayload();
+
+				if (debug_RIP) System.out.println("Handle RIP response from " + IPv4.fromIPv4Address(ip.getSourceAddress()));
+
+				List<RIPv2Entry> entries = rip.getEntries();
+				for (RIPv2Entry entry : entries) 
+				{
+					int ipAddr = entry.getAddress();
+					int mask = entry.getSubnetMask();
+					int nextHop = ip.getSourceAddress();
+					int metric = entry.getMetric() + 1;
+					if (metric >= 17) 
+					{ metric = 16; }
+					int netAddr = ipAddr & mask;
+
+					synchronized(this.ripMap)
+					{
+						if (ripMap.containsKey(netAddr))
+						{
+							LocalRipEntry localEntry = ripMap.get(netAddr);
+							localEntry.timestamp = System.currentTimeMillis();
+							if (metric < localEntry.metric)
+							{
+								localEntry.metric = metric;
+								if (debug_RIP) System.out.println("Update RouteEntry " +
+								IPv4.fromIPv4Address(ipAddr) + " " + IPv4.fromIPv4Address(nextHop) + " " + IPv4.fromIPv4Address(mask) + " " + inIface.toString());
+								this.routeTable.update(ipAddr, mask, nextHop, inIface);
+							}
+	
+							if (metric >= 16) 
+							{
+								RouteEntry bestMatch = this.routeTable.lookup(ipAddr);
+								if (inIface.equals(bestMatch.getInterface()))
+								{
+									localEntry.metric = 16;
+									if (null != bestMatch) 
+									{this.routeTable.remove(ipAddr, mask);}
+								}
+							}
+						}
+						else
+						{
+							ripMap.put(netAddr, new LocalRipEntry(ipAddr, mask, nextHop, metric, System.currentTimeMillis()));
+							if (metric < 16)
+							{
+								if (debug_RIP) System.out.println("Insert new RouteEntry " +
+								IPv4.fromIPv4Address(ipAddr) + " " + IPv4.fromIPv4Address(nextHop) + " " + IPv4.fromIPv4Address(mask) + " " + inIface.toString());
+								this.routeTable.insert(ipAddr, nextHop, mask, inIface);
+							}
+						}
+					}
+				}
 				break;
 			default:
 				break;
