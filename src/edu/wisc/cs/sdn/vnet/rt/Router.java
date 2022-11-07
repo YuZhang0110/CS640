@@ -593,7 +593,7 @@ public class Router extends Device
 	***********************				  ICMP 				************************
 	*******************************************************************************/
 
-	private void sendICMP(Ethernet etherPacket, Iface inIface, byte type, byte code)
+	private void sendICMP(Ethernet etherPacket, Iface inIface, int type, int code)
 	{
 		Ethernet ether = new Ethernet();
 		IPv4 ip = new IPv4();
@@ -620,8 +620,8 @@ public class Router extends Device
 			handleArpMiss(nextHop, etherPacket, inIface, inIface);
 			return;   
 		}
-		icmp.setIcmpType(type);
-		icmp.setIcmpCode(code);
+		icmp.setIcmpType((byte) type);
+		icmp.setIcmpCode((byte) code);
 		ether.setEtherType(Ethernet.TYPE_IPv4);
 		ether.setSourceMACAddress(inIface.getMacAddress().toBytes());
 		ether.setDestinationMACAddress(arpEntry.getMac().toBytes());
