@@ -542,11 +542,10 @@ public class Router extends Device
 		if (temp == 0)
 		{ temp = dstAddr; }
 		final int nextHop = temp;
-		if (arpQueues.containsKey(nextHop))
-		{
+		if (arpQueues.containsKey(nextHop)) {
 			List<Ethernet> queue = arpQueues.get(nextHop);
 			queue.add(etherPacket);
-			return
+			return;
 		}
 		Thread waitForReply = new Thread(new Runnable(){
 			public void run() {
