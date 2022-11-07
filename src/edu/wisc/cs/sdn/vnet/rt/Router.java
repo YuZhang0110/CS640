@@ -493,6 +493,8 @@ public class Router extends Device
 		ip.setSourceAddress(srcIP);
 		ip.setDestinationAddress("224.0.0.9");
 		ip.setProtocol(IPv4.PROTOCOL_UDP);
+		ether.setPayload(ip);
+		return ether;
 	}
 
 	public Ethernet genRipResp(int srcIP, MACAddress srcMAC){
@@ -501,13 +503,16 @@ public class Router extends Device
 		UDP udp = new UDP();
 		RIPv2 rip = new RIPv2();
 
-		this.genEthernetIpLayer(ether, ip, srcIP, srcMAC);
-
-
+		ether = this.genEthernetIpLayer(ether, ip, srcIP, srcMAC);
+		
 		//udp layer
 		udp.setSourcePort(UDP.RIP_PORT);
 		udp.setDestinationPort(UDP.RIP_PORT);
 		rip.setCommand(RIPv2.COMMAND_RESPONSE);
+
+		//link packets together
+		ip.setPayload(udp);
+		udp.setPayload(rip);
 
 		for(RouteEntry entry : routeTable.getEntries()) {
 			RIPv2Entry tmp=new RIPv2Entry(entry.getDestinationAddress(),entry.getMaskAddress(),entry.getDistance());
@@ -535,7 +540,7 @@ public class Router extends Device
 		UDP udp = new UDP();
 		RIPv2 rip = new RIPv2();
 
-		this.genEthernetIpLayer(ether, ip, srcIP, srcMAC);
+		ether = this.genEthernetIpLayer(ether, ip, srcIP, srcMAC);
 
 		//udp layer
 		udp.setSourcePort(UDP.RIP_PORT);
@@ -544,7 +549,6 @@ public class Router extends Device
 		rip.setCommand(RIPv2.COMMAND_REQUEST);
 		
 		//link packets together
-		ether.setPayload(ip);
 		ip.setPayload(udp);
 		udp.setPayload(rip);
 		
