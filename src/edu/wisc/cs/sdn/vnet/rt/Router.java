@@ -256,6 +256,21 @@ public class Router extends Device
 
 		this.sendPacket(etherPacket, outIface);
 	}
+	private IPv4 generateIpPacket(byte protocol, int sourceAddress, int destAddress){
+		IPv4 ip = new IPv4();
+		ip.setTtl((byte) 64);
+		ip.setProtocol(protocol);
+		ip.setSourceAddress(sourceAddress);
+		ip.setDestinationAddress(destAddress);
+		return ip;
+	}
+
+	private ICMP generateIcmpPacket(int type, int code){
+		ICMP icmp = new ICMP();
+		icmp.setIcmpType((byte) type);
+		icmp.setIcmpCode((byte) code);
+		return icmp;
+	}
 	private MACAddress findNextHopMACAddress(int DestIP){
 		// 1. loop up the routeTable
 		RouteEntry routeEntry = this.routeTable.lookup(DestIP);
