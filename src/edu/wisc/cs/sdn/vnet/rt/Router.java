@@ -248,7 +248,29 @@ public class Router extends Device
 				break;
 		}
 	}
+	private void genRipPacket(int type, RIPv2 rip)
+	{
+		if(type == RIP_UNSOL) {
+			rip.setCommand(RIPv2.COMMAND_RESPONSE);
+		} 
+		if(type == RIP_REQUEST) {
+			rip.setCommand(RIPv2.COMMAND_REQUEST);
+		}
+		if(type == RIP_REQUEST) {
+			rip.setCommand(RIPv2.COMMAND_RESPONSE);
+		}
 
+		List<RIPv2Entry> entries = new ArrayList<RIPv2Entry>();
+		synchronized(this.ripMap)
+		{
+			for (LocalRipEntry localEntry : ripMap.values())
+			{
+				RIPv2Entry entry = new RIPv2Entry(localEntry.addr, localEntry.mask, localEntry.metric);
+				entries.add(entry);
+			}
+		}
+		rip.setEntries(entries);
+	}
 	private void sendRip(int type, Ethernet etherPacket, Iface iface) 
 	{
 		Ethernet ether = new Ethernet();
@@ -265,46 +287,23 @@ public class Router extends Device
 
 		udp.setSourcePort(UDP.RIP_PORT);
 		udp.setDestinationPort(UDP.RIP_PORT);
+		genRipPacket(type, rip);
+		if(type == RIP_UNSOL || type == RIP_REQUEST) {
+			ether.setDestinationMACAddress(MAC_BROADCAST);
+			ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
 
-		switch(type)
-		{
-			case RIP_UNSOL:
-				rip.setCommand(RIPv2.COMMAND_RESPONSE);
-				ether.setDestinationMACAddress(MAC_BROADCAST);
-				ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
-				break;
-			case RIP_REQUEST:
-				rip.setCommand(RIPv2.COMMAND_REQUEST);
-				ether.setDestinationMACAddress(MAC_BROADCAST);
-				ip.setDestinationAddress(IPv4.toIPv4Address(IP_RIP_MULTICAST));
-				break;
-			case RIP_RESPONSE:
-				IPv4 ipPacket = (IPv4)etherPacket.getPayload();
+		} else if(type == RIP_RESPONSE) {
+			IPv4 ipPacket = (IPv4)etherPacket.getPayload();
 
-				rip.setCommand(RIPv2.COMMAND_RESPONSE);
-				ether.setDestinationMACAddress(ether.getSourceMACAddress());
-				ip.setDestinationAddress(ipPacket.getSourceAddress());
-				break;
-			default:
-				break;
-		}
-
-		List<RIPv2Entry> entries = new ArrayList<RIPv2Entry>();
-		synchronized(this.ripMap)
-		{
-			for (LocalRipEntry localEntry : ripMap.values())
-			{
-				RIPv2Entry entry = new RIPv2Entry(localEntry.addr, localEntry.mask, localEntry.metric);
-				entries.add(entry);
-			}
+			ether.setDestinationMACAddress(ether.getSourceMACAddress());
+			ip.setDestinationAddress(ipPacket.getSourceAddress());
 		}
 
 		ether.setPayload(ip);
 		ip.setPayload(udp);
 		udp.setPayload(rip);
-		rip.setEntries(entries);
-
-		if (debug_RIP) System.out.println("Sending RIP packet to " + IPv4.fromIPv4Address(ip.getDestinationAddress()));
+		
+		//System.out.println("Sending RIP packet to " + IPv4.fromIPv4Address(ip.getDestinationAddress()));
 		sendPacket(ether, iface);
 	}
 
