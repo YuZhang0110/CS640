@@ -365,9 +365,9 @@ public class Router extends Device
 
 		if(inIface.getIpAddress()== targetIP) {
 			if(arpPacket.getOpCode() == ARP.OP_REQUEST){
-				this.handleARPRequest(arpPacket, etherPacket, inIface, sourceIP);
+				this.handleARPRequest(arpPacket, etherPacket, inIface);
 			} else{
-				this.handleARPReply(arpPacket, etherPacket, inIface);
+				this.handleARPReply(arpPacket, etherPacket, inIface, sourceIP);
 			}
 		} else{
 			System.out.println("\nARP packet not for our inIface: "+inIface.toString());
