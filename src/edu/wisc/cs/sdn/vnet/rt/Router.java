@@ -483,7 +483,7 @@ public class Router extends Device
 	 * @param srcMAC
 	 * @return
 	 */
-	public Ethernet genEthernetIpLayer(Ethernet ether, IPv4 ip, int srcIP){
+	public Ethernet genEthernetIpLayer(Ethernet ether, IPv4 ip, int srcIP, MACAddress srcMAC){
 		//ethernet layer
 		ether.setEtherType(Ethernet.TYPE_IPv4);
 		ether.setDestinationMACAddress("FF:FF:FF:FF:FF:FF");
@@ -501,8 +501,8 @@ public class Router extends Device
 		UDP udp = new UDP();
 		RIPv2 rip = new RIPv2();
 
-		this.genEthernetIpLayer(ether, ip, srcIP);
-		
+		this.genEthernetIpLayer(ether, ip, srcIP, srcMAC);
+
 
 		//udp layer
 		udp.setSourcePort(UDP.RIP_PORT);
@@ -535,7 +535,7 @@ public class Router extends Device
 		UDP udp = new UDP();
 		RIPv2 rip = new RIPv2();
 
-		this.genEthernetIpLayer(ether, ip, srcIP);
+		this.genEthernetIpLayer(ether, ip, srcIP, srcMAC);
 
 		//udp layer
 		udp.setSourcePort(UDP.RIP_PORT);
